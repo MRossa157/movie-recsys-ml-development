@@ -13,6 +13,8 @@ pandas = "^2.2.2"
 optuna = "^4.1.0"
 rectools = {extras = ["lightfm"], version = "^0.9.0"}
 implicit = {git = "https://github.com/benfred/implicit.git"}
+matplotlib = "^3.10.0"
+seaborn = "^0.13.2"
 
 
 [tool.poetry.group.dev.dependencies]
