@@ -6,8 +6,8 @@ from base import BaseRecommender
 from implicit.cpu.als import AlternatingLeastSquares
 from scipy.sparse import coo_matrix, csr_matrix
 
-import constants
-from utils import MovieMapper
+from src.constants import DATASET_NAME, WEIGHTS_PATH
+from src.utils import MovieMapper
 
 
 class ALSRecommender(BaseRecommender):
@@ -141,16 +141,20 @@ class ALSRecommender(BaseRecommender):
 
 
 if __name__ == "__main__":
-    from_custom_ratings = False
-    model_path = rf"{constants.WEIGHTS_PATH}/als.npz"
-    ratings = pd.read_csv(constants.RATINGS_PATH)
-    movies = pd.read_csv(constants.MOVIE_PATH)
+    from_custom_ratings = True
+    model_path = rf"{WEIGHTS_PATH}/als.npz"
+    ratings_path = rf'src/datasets/{DATASET_NAME}/ratings.csv'
+    movie_path = rf'src/datasets/{DATASET_NAME}/movies.csv'
+
+    ratings = pd.read_csv(ratings_path)
+    movies = pd.read_csv(movie_path)
 
     recommender = ALSRecommender(model_path, ratings, movies)
 
     if from_custom_ratings:
         with open(
-            r"custom_user_ratings/egor_ratings.json", "r", encoding="utf-8"
+            r'src/custom_user_ratings/egor_ratings.json',
+            encoding='utf-8',
         ) as file:
             new_user_ratings = json.load(file)
             new_user_ratings = {
@@ -171,11 +175,14 @@ if __name__ == "__main__":
         }
 
     recommendations = recommender.get_recommendation_for_new_user(
-        new_user_ratings, n_recommendations=6
+        new_user_ratings,
+        n_recommendations=6,
     )
 
-    movie_mapper = MovieMapper(constants.MOVIE_PATH)
+    movie_mapper = MovieMapper(movie_path)
 
     ALSRecommender.print_recommendations(
-        movie_mapper, recommendations[0], recommendations[1]
+        movie_mapper,
+        recommendations[0],
+        recommendations[1],
     )

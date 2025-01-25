@@ -1,6 +1,5 @@
-RATINGS_PATH = r'MovieLens_20M_Dataset/rating.csv'
-MOVIE_PATH = r'MovieLens_20M_Dataset/movie.csv'
-WEIGHTS_PATH = r'src/weights'
+DATASET_NAME = 'ml-latest-small'
+WEIGHTS_PATH = r'src/models'
 
 
 RATINGS_PATH_SANDBOX = r'../MovieLens_20M_Dataset/rating.csv'
