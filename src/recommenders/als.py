@@ -1,188 +1,158 @@
-import json
+from __future__ import annotations
+
+import os
+import pickle
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
-from base import BaseRecommender
-from implicit.cpu.als import AlternatingLeastSquares
-from scipy.sparse import coo_matrix, csr_matrix
+from rectools import Columns
+from rectools.dataset import Dataset
 
-from src.constants import DATASET_NAME, WEIGHTS_PATH
-from src.utils import MovieMapper
+from src.constants import ItemsFeatureTopKConfig
+from src.recommenders.feature_processors import FeaturePreparer
+
+if TYPE_CHECKING:
+    from rectools.models import ImplicitALSWrapperModel
+
+Columns.Datetime = 'last_watch_dt'
+
+
+class BaseRecommender:
+    def recommend(
+        self, user_id: int, viewed_items: list[int], k: int
+    ) -> pd.DataFrame:
+        raise NotImplementedError
 
 
 class ALSRecommender(BaseRecommender):
-    def __init__(self, model_path, ratings, movies) -> None:
-        """
-        model_path (str): Path to .npz checkpoint file from lib 'implicit' ALS model
-
-        ratings (pd.DataFrame): Dataframe containing the movie ratings that it was trained on
-        movies (pd.DataFrame): Dataframe containing the data movies
-        """
-        if not model_path.endswith(".npz"):
-            raise ValueError("Путь к модели должен содержать файл с расширением .npz")
-        self.model = AlternatingLeastSquares.load(model_path)
-        self.ratings = ratings
-        self.movies = movies
-
-        self.__create_mappings(ratings, movies)
-
-        ready_ratings = self.__prepare_ratings(self.ratings)
-        self.user_items = ALSRecommender.to_user_item_coo(ready_ratings).tocsr()
-
-    def __create_mappings(self, ratings, movies):
-        self.ALL_USERS = ratings["userId"].unique().tolist()
-        self.ALL_ITEMS = movies["movieId"].unique().tolist()
-
-        self.user_ids = dict(list(enumerate(self.ALL_USERS)))
-        self.item_ids = dict(list(enumerate(self.ALL_ITEMS)))
-
-        self.user_map = {u: uidx for uidx, u in self.user_ids.items()}
-        self.item_map = {i: iidx for iidx, i in self.item_ids.items()}
-
-    def get_mapped_user(self, user_id):
-        return self.user_map.get(user_id)
-
-    def get_mapped_item(self, item_id):
-        return self.item_map.get(item_id)
-
-    def __prepare_ratings(self, ratings):
-        ratings = ratings.copy()
-        ratings["mapped_user_id"] = ratings["userId"].map(self.user_map)
-        ratings["mapped_movie_id"] = ratings["movieId"].map(self.item_map)
-        return ratings
-
-    @staticmethod
-    def to_user_item_coo(df: pd.DataFrame):
-        """Turn a dataframe with transactions into a COO sparse items x users matrix"""
-        row = df["mapped_user_id"].values
-        col = df["mapped_movie_id"].values
-        data = np.ones(df.shape[0])
-        coo = coo_matrix((data, (row, col)))
-        return coo
-
-    @staticmethod
-    def print_recommendations(movie_mapper: MovieMapper, item_ids, scores):
-        for movie_id, score in zip(item_ids, scores):
-            print(
-                f"Movie ID: {movie_id}, Movie Title: {movie_mapper.movieid_to_title(movie_id)}, Score: {score}"
-            )
-
-    def get_recommendation(
+    def __init__(
         self,
-        userid,
-        N=12,
-        filter_already_liked_items=False,
-        filter_items=None,
-        recalculate_user=False,
-        items=None,
-    ) -> tuple:
-        """
-        Parameters
-        userid (Union[int, array_like]) – The userid or array of userids to calculate recommendations for
-
-        N (int, optional) – The number of results to return
-
-        filter_already_liked_items (bool, optional) – When true, don’t return items present in the training set that were rated by the specified user.
-
-        filter_items (array_like, optional) – List of extra item ids to filter out from the output
-
-        recalculate_user (bool, optional) – When true, don’t rely on stored user embeddings and instead recalculate from the passed in user_items. This option isn’t supported by all models.
-
-        items (array_like, optional) – Array of extra item ids. When set this will only rank the items in this array instead of ranking every item the model was fit for. This parameter cannot be used with filter_items
-
-        Returns
-        Tuple of (itemids, scores) arrays. For a single user these array will be 1-dimensional with N items.
-        """
-        customer_id = self.get_mapped_user(userid)
-
-        ids, scores = self.model.recommend(
-            customer_id,
-            self.user_items[customer_id],
-            N=N,
-            filter_already_liked_items=filter_already_liked_items,
-            filter_items=filter_items,
-            recalculate_user=recalculate_user,
-            items=items,
-        )
-
-        mapped_ids = [self.item_ids.get(item_id) for item_id in ids]
-
-        return mapped_ids, scores
-
-    def get_recommendation_for_new_user(self, ratings, n_recommendations=6):
-        """
-        Get recommendations for a new user.
-
-        Parameters
-        ratings (dict) - Dictionary with new user's ratings, where keys are movieId and values are ratings (float).
-        n_recommendations (int, optional) - Number of recommendations to return
-
-        Returns:
-            Tuple of (itemids, scores) arrays. For a single user, these arrays will be 1-dimensional with N items.
-        """
-
-        num_items = self.user_items.shape[1]
-
-        temp_user_items = csr_matrix((1, num_items))
-
-        for movie_id, _ in ratings.items():
-            mapped_movie_id = self.get_mapped_item(movie_id)
-            # Since this is an implicit method, we simply mark the element that the user interacted with
-            temp_user_items[0, mapped_movie_id] = 1
-
-        # userid is not important because recalculate_user=True
-        ids, scores = self.model.recommend(
-            0, temp_user_items, N=n_recommendations, recalculate_user=True
-        )
-
-        mapped_ids = [self.item_ids.get(item_id) for item_id in ids]
-
-        return mapped_ids, scores
-
-
-if __name__ == "__main__":
-    from_custom_ratings = True
-    model_path = rf"{WEIGHTS_PATH}/als.npz"
-    ratings_path = rf'src/datasets/{DATASET_NAME}/ratings.csv'
-    movie_path = rf'src/datasets/{DATASET_NAME}/movies.csv'
-
-    ratings = pd.read_csv(ratings_path)
-    movies = pd.read_csv(movie_path)
-
-    recommender = ALSRecommender(model_path, ratings, movies)
-
-    if from_custom_ratings:
-        with open(
-            r'src/custom_user_ratings/egor_ratings.json',
-            encoding='utf-8',
-        ) as file:
-            new_user_ratings = json.load(file)
-            new_user_ratings = {
-                int(movieid): float(rating)
-                for movieid, rating in new_user_ratings.items()
-            }
-    else:
-        # Star Wars Fan
-        new_user_ratings = {
-            5378: 5,
-            33493: 5,
-            61160: 5,
-            79006: 4,
-            100089: 5,
-            109713: 5,
-            260: 5,
-            1196: 5,
+        model_path: str,
+        items_path: str,
+        users_path: str,
+        interactions_path: str,
+    ) -> None:
+        self.feature_config = {
+            'director_top_k': ItemsFeatureTopKConfig.DIRECTORS_TOP_K,
+            'studio_top_k': ItemsFeatureTopKConfig.STUDIOS_TOP_K
         }
 
-    recommendations = recommender.get_recommendation_for_new_user(
-        new_user_ratings,
-        n_recommendations=6,
+        self.feature_preparer = FeaturePreparer(self.feature_config)
+
+        self.cat_item_features = self.feature_preparer.get_item_feature_names()
+        self.cat_user_features = self.feature_preparer.get_user_feature_names()
+
+        self._load_data(items_path, users_path, interactions_path)
+        self._load_model(model_path)
+        self._init_dataset(self.cat_item_features, self.cat_user_features)
+
+    def recommend(
+        self,
+        user_id: int,
+        viewed_items: list[int],
+        k: int = 10,
+        user_features: dict[str, Any] | None = None,
+    ) -> pd.DataFrame:
+        if user_id not in self.original_user_ids:
+            if not user_features:
+                raise ValueError('User features required for new users')
+            self._add_new_user(user_id, user_features, viewed_items)
+
+            self._init_dataset(self.cat_item_features, self.cat_user_features)
+
+            # Для нового пользователя требуется дообучение
+            self.model.fit(self.dataset)
+
+        # Получаем рекомендации
+        recos = self.model.recommend(
+            users=[user_id],
+            dataset=self.dataset,
+            k=k,
+            filter_viewed=True
+        )
+
+        return recos.merge(
+            self.items[['item_id', 'title']],
+            on='item_id'
+        ).sort_values('rank', ascending=False)
+
+    def _load_data(
+        self,
+        items_path: str,
+        users_path: str,
+        interactions_path: str,
+    ) -> None:
+        self.items: pd.DataFrame = pd.read_csv(items_path)
+        self.users: pd.DataFrame = pd.read_csv(users_path)
+        self.interactions: pd.DataFrame = pd.read_csv(interactions_path)
+        # Установка весов
+        self.interactions[Columns.Weight] = np.where(
+            self.interactions['watched_pct'] > 20, 3, 1
+        )
+        self.original_user_ids = set(self.users['user_id'].values)
+        self.original_item_ids = set(self.items['item_id'].values)
+
+    def _load_model(self, model_path: str) -> None:
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f'Model file {model_path} not found')
+
+        with open(model_path, 'rb') as f:
+            self.model: ImplicitALSWrapperModel = pickle.load(f)
+
+        if not hasattr(self.model, 'recommend'):
+            raise ValueError('Invalid model format')
+
+    def _init_dataset(self) -> None:
+        item_features = self.feature_preparer.prepare_item_features(self.items)
+        user_features = self.feature_preparer.prepare_user_features(self.users)
+
+        self.dataset = Dataset.construct(
+            interactions_df=self.interactions,
+            user_features_df=user_features,
+            item_features_df=item_features,
+            cat_user_features=self.cat_user_features,
+            cat_item_features=self.cat_item_features,
+        )
+
+    def _add_new_user(
+        self,
+        user_id: int,
+        user_features: dict[str, Any],
+        viewed_items: list[int],
+    ) -> None:
+        new_user = pd.DataFrame([{**user_features, 'user_id': user_id}])
+        self.users = pd.concat([self.users, new_user], ignore_index=True)
+
+        new_interactions = pd.DataFrame({
+            'user_id': user_id,
+            'item_id': viewed_items,
+            'last_watch_dt': pd.Timestamp.now().date(),
+            'total_dur': np.nan,
+            'watched_pct': 100.0,
+            'weight': 3,
+        })
+        self.interactions = pd.concat([self.interactions, new_interactions])
+
+
+if __name__ == '__main__':
+    recommender = ALSRecommender(
+        model_path=r'src\models\als\20250125_18-22-26',
+        items_path=r'src\sandbox\items_processed.csv',
+        users_path=r'src\sandbox\users_processed.csv',
+        interactions_path=r'src\sandbox\interactions_processed.csv',
     )
 
-    movie_mapper = MovieMapper(movie_path)
-
-    ALSRecommender.print_recommendations(
-        movie_mapper,
-        recommendations[0],
-        recommendations[1],
+    recommendations = recommender.recommend(
+        user_id=1100000,
+        viewed_items=[14804, 7693, 11115, 8148, 16382, 4072, 898],
+        user_features={
+            'age': 'age_25_34',
+            'sex': 'М',
+            'income': 'income_60_90',
+            'kids_flg': False
+        },
+        k=10
     )
+
+    print(recommendations[['item_id', 'title', 'score']])
