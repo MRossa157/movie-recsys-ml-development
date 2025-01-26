@@ -9,6 +9,9 @@ import pandas as pd
 from rectools import Columns
 from rectools.dataset import Dataset
 
+from src.constants import ItemsFeatureTopKConfig
+from src.recommenders.feature_processors import FeaturePreparer
+
 if TYPE_CHECKING:
     from rectools.models import ImplicitALSWrapperModel
 
@@ -29,11 +32,16 @@ class ALSRecommender(BaseRecommender):
         items_path: str,
         users_path: str,
         interactions_path: str,
-        cat_item_features: list[str],
-        cat_user_features: list[str],
     ) -> None:
-        self.cat_item_features = cat_item_features
-        self.cat_user_features = cat_user_features
+        self.feature_config = {
+            'director_top_k': ItemsFeatureTopKConfig.DIRECTORS_TOP_K,
+            'studio_top_k': ItemsFeatureTopKConfig.STUDIOS_TOP_K
+        }
+
+        self.feature_preparer = FeaturePreparer(self.feature_config)
+
+        self.cat_item_features = self.feature_preparer.get_item_feature_names()
+        self.cat_user_features = self.feature_preparer.get_user_feature_names()
 
         self._load_data(items_path, users_path, interactions_path)
         self._load_model(model_path)
@@ -95,36 +103,17 @@ class ALSRecommender(BaseRecommender):
         if not hasattr(self.model, 'recommend'):
             raise ValueError('Invalid model format')
 
-    def _init_dataset(
-        self,
-        cat_item_features: list[str],
-        cat_user_features: list[str],
-    ) -> None:
+    def _init_dataset(self) -> None:
+        item_features = self.feature_preparer.prepare_item_features(self.items)
+        user_features = self.feature_preparer.prepare_user_features(self.users)
+
         self.dataset = Dataset.construct(
             interactions_df=self.interactions,
-            user_features_df=self._prepare_features('user', cat_user_features),
-            item_features_df=self._prepare_features('item', cat_item_features),
-            cat_user_features=cat_user_features,
-            cat_item_features=cat_item_features,
+            user_features_df=user_features,
+            item_features_df=item_features,
+            cat_user_features=self.cat_user_features,
+            cat_item_features=self.cat_item_features,
         )
-
-    def _prepare_features(
-        self, entity: str, features: list[str]
-    ) -> pd.DataFrame:
-        if entity == 'user':
-            data = self.users
-            id_col = Columns.User
-        else:
-            data = self.items
-            id_col = Columns.Item
-
-        feature_frames = []
-        for feature in features:
-            frame = data[[id_col, feature]].copy()
-            frame.columns = ['id', 'value']
-            frame['feature'] = feature
-            feature_frames.append(frame)
-        return pd.concat(feature_frames)
 
     def _add_new_user(
         self,
@@ -147,25 +136,13 @@ class ALSRecommender(BaseRecommender):
 
 
 if __name__ == '__main__':
-    # Инициализация
     recommender = ALSRecommender(
         model_path=r'src\models\als\20250125_18-22-26',
         items_path=r'src\sandbox\items_processed.csv',
         users_path=r'src\sandbox\users_processed.csv',
         interactions_path=r'src\sandbox\interactions_processed.csv',
-        cat_item_features=[
-            'genre',
-            'content_type',
-            'countries',
-            'release_decade',
-            'age_rating',
-            'studio',
-            'director',
-        ],
-        cat_user_features=['sex', 'age', 'income'],
     )
 
-    # Получение рекомендаций для нового пользователя
     recommendations = recommender.recommend(
         user_id=1100000,
         viewed_items=[14804, 7693, 11115, 8148, 16382, 4072, 898],
