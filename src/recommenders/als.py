@@ -45,7 +45,7 @@ class ALSRecommender(BaseRecommender):
 
         self._load_data(items_path, users_path, interactions_path)
         self._load_model(model_path)
-        self._init_dataset(self.cat_item_features, self.cat_user_features)
+        self._init_dataset()
 
     def recommend(
         self,
@@ -59,7 +59,7 @@ class ALSRecommender(BaseRecommender):
                 raise ValueError('User features required for new users')
             self._add_new_user(user_id, user_features, viewed_items)
 
-            self._init_dataset(self.cat_item_features, self.cat_user_features)
+            self._init_dataset()
 
             # Для нового пользователя требуется дообучение
             self.model.fit(self.dataset)
@@ -75,7 +75,7 @@ class ALSRecommender(BaseRecommender):
         return recos.merge(
             self.items[['item_id', 'title']],
             on='item_id'
-        ).sort_values('rank', ascending=False)
+        ).sort_values('rank')
 
     def _load_data(
         self,
@@ -145,14 +145,26 @@ if __name__ == '__main__':
 
     recommendations = recommender.recommend(
         user_id=1100000,
-        viewed_items=[14804, 7693, 11115, 8148, 16382, 4072, 898],
+        # viewed_items=[14804, 7693, 11115, 8148, 16382, 4072, 898],
+        viewed_items=[
+            2134,
+            14177,
+            10994,
+            12057,
+            12842,
+            13720,
+            14320,
+            5533,
+            10085,
+            6870,
+        ],
         user_features={
-            'age': 'age_25_34',
-            'sex': 'М',
-            'income': 'income_60_90',
-            'kids_flg': False
+            'age': 'age_18_24',
+            'sex': 'Ж',
+            'income': 'income_0_20',
+            'kids_flg': False,
         },
-        k=10
+        k=10,
     )
 
     print(recommendations[['item_id', 'title', 'score']])
