@@ -9,6 +9,7 @@ import pandas as pd
 from rectools import Columns
 from rectools.dataset import Dataset
 
+from recommenders.base import BaseRecommender
 from src.constants import ItemsFeatureTopKConfig
 from src.recommenders.feature_processors import FeaturePreparer
 
@@ -16,13 +17,6 @@ if TYPE_CHECKING:
     from rectools.models import ImplicitALSWrapperModel
 
 Columns.Datetime = 'last_watch_dt'
-
-
-class BaseRecommender:
-    def recommend(
-        self, user_id: int, viewed_items: list[int], k: int
-    ) -> pd.DataFrame:
-        raise NotImplementedError
 
 
 class ALSRecommender(BaseRecommender):
