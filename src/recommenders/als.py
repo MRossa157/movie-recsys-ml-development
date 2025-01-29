@@ -9,8 +9,8 @@ import pandas as pd
 from rectools import Columns
 from rectools.dataset import Dataset
 
-from recommenders.base import BaseRecommender
 from src.constants import ItemsFeatureTopKConfig
+from src.recommenders.base import BaseRecommender
 from src.recommenders.feature_processors import FeaturePreparer
 
 if TYPE_CHECKING:
@@ -44,13 +44,16 @@ class ALSRecommender(BaseRecommender):
     def recommend(
         self,
         user_id: int,
-        viewed_items: list[int],
         k: int = 10,
+        viewed_items: list[int] | None = None,
         user_features: dict[str, Any] | None = None,
     ) -> pd.DataFrame:
         if user_id not in self.original_user_ids:
             if not user_features:
                 raise ValueError('User features required for new users')
+            if not viewed_items:
+                raise ValueError('Viewed items features required for new users')
+
             self._add_new_user(user_id, user_features, viewed_items)
 
             self._init_dataset()
@@ -67,8 +70,8 @@ class ALSRecommender(BaseRecommender):
         )
 
         return recos.merge(
-            self.items[['item_id', 'title']],
-            on='item_id'
+            self.items[[Columns.Item, 'title']],
+            on=Columns.Item
         ).sort_values('rank')
 
     def _load_data(
@@ -84,8 +87,9 @@ class ALSRecommender(BaseRecommender):
         self.interactions[Columns.Weight] = np.where(
             self.interactions['watched_pct'] > 20, 3, 1
         )
-        self.original_user_ids = set(self.users['user_id'].values)
-        self.original_item_ids = set(self.items['item_id'].values)
+        self.original_user_ids = set(self.users[Columns.User].values)
+        # TODO: не используется
+        self.original_item_ids = set(self.items[Columns.Item].values)
 
     def _load_model(self, model_path: str) -> None:
         if not os.path.exists(model_path):
@@ -119,12 +123,12 @@ class ALSRecommender(BaseRecommender):
         self.users = pd.concat([self.users, new_user], ignore_index=True)
 
         new_interactions = pd.DataFrame({
-            'user_id': user_id,
-            'item_id': viewed_items,
-            'last_watch_dt': pd.Timestamp.now().date(),
+            Columns.User: user_id,
+            Columns.Item: viewed_items,
+            Columns.Datetime: pd.Timestamp.now().date(),
             'total_dur': np.nan,
             'watched_pct': 100.0,
-            'weight': 3,
+            Columns.Weight: 3,
         })
         self.interactions = pd.concat([self.interactions, new_interactions])
 
@@ -132,9 +136,9 @@ class ALSRecommender(BaseRecommender):
 if __name__ == '__main__':
     recommender = ALSRecommender(
         model_path=r'src\models\als\20250125_18-22-26',
-        items_path=r'src\sandbox\items_processed.csv',
-        users_path=r'src\sandbox\users_processed.csv',
-        interactions_path=r'src\sandbox\interactions_processed.csv',
+        items_path=r'src\datasets\items_processed.csv',
+        users_path=r'src\datasets\users_processed.csv',
+        interactions_path=r'src\datasets\interactions_processed.csv',
     )
 
     recommendations = recommender.recommend(
