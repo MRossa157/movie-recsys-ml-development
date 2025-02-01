@@ -72,7 +72,7 @@ class ALSRecommender(BaseRecommender):
         return recos.merge(
             self.items[[Columns.Item, 'title']],
             on=Columns.Item
-        ).sort_values('rank')
+        ).sort_values(Columns.Rank)
 
     def _load_data(
         self,
@@ -88,8 +88,6 @@ class ALSRecommender(BaseRecommender):
             self.interactions['watched_pct'] > 20, 3, 1
         )
         self.original_user_ids = set(self.users[Columns.User].values)
-        # TODO: не используется
-        self.original_item_ids = set(self.items[Columns.Item].values)
 
     def _load_model(self, model_path: str) -> None:
         if not os.path.exists(model_path):
@@ -119,7 +117,7 @@ class ALSRecommender(BaseRecommender):
         user_features: dict[str, Any],
         viewed_items: list[int],
     ) -> None:
-        new_user = pd.DataFrame([{**user_features, 'user_id': user_id}])
+        new_user = pd.DataFrame([{**user_features, Columns.User: user_id}])
         self.users = pd.concat([self.users, new_user], ignore_index=True)
 
         new_interactions = pd.DataFrame({
@@ -134,6 +132,7 @@ class ALSRecommender(BaseRecommender):
 
 
 if __name__ == '__main__':
+    from mock_user_features import egor_features
     recommender = ALSRecommender(
         model_path=r'src\models\als\20250125_18-22-26',
         items_path=r'src\datasets\items_processed.csv',
@@ -143,26 +142,8 @@ if __name__ == '__main__':
 
     recommendations = recommender.recommend(
         user_id=1100000,
-        # viewed_items=[14804, 7693, 11115, 8148, 16382, 4072, 898],
-        viewed_items=[
-            2134,
-            14177,
-            10994,
-            12057,
-            12842,
-            13720,
-            14320,
-            5533,
-            10085,
-            6870,
-        ],
-        user_features={
-            'age': 'age_18_24',
-            'sex': 'Ж',
-            'income': 'income_0_20',
-            'kids_flg': False,
-        },
-        k=10,
+        viewed_items=egor_features.items,
+        user_features=egor_features.user_features.dict(),
     )
 
     print(recommendations[['item_id', 'title', 'score']])
