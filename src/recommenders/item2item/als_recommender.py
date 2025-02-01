@@ -35,6 +35,9 @@ if __name__ == '__main__':
         interactions_path=r'src\datasets\interactions_processed.csv',
     )
 
-    recommendations = recommender.recommend(viewed_items=egor_features.items)
+    recommendations = recommender.recommend(
+        viewed_items=egor_features.items,
+        k=3,
+    )
 
     print(recommendations)

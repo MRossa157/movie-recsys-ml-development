@@ -6,6 +6,7 @@ import numpy as np
 from pandas import DataFrame, read_csv
 from rectools import Columns
 from rectools.dataset import Dataset
+from rectools.models import LightFMWrapperModel
 
 from src.constants import ItemsFeatureTopKConfig
 from src.recommenders.feature_processors import FeaturePreparer
@@ -48,10 +49,13 @@ class BaseI2IRecommender(ABC):
             filter_itself=True,
         )
 
-        return recos.merge(
-            self.items[[Columns.Item, 'title']],
-            on=Columns.Item
-        ).sort_values(Columns.Rank)
+        merged_recos = recos.merge(
+            self.items[[Columns.Item, 'title']], on=Columns.Item
+        ).drop_duplicates(subset=Columns.Item)
+
+        return merged_recos.sort_values(
+            by=[Columns.Rank, Columns.Score], ascending=[True, False]
+        )
 
     def _load_data(
         self,
@@ -63,7 +67,7 @@ class BaseI2IRecommender(ABC):
         self.users = read_csv(users_path)
         self.interactions = read_csv(interactions_path)
 
-        # Добавление весов взаимодействий
+        # Установка весов
         self.interactions[Columns.Weight] = np.where(
             self.interactions['watched_pct'] > 20, 3, 1
         )
