@@ -6,7 +6,6 @@ import numpy as np
 from pandas import DataFrame, read_csv
 from rectools import Columns
 from rectools.dataset import Dataset
-from rectools.models import LightFMWrapperModel
 
 from src.constants import ItemsFeatureTopKConfig
 from src.recommenders.feature_processors import FeaturePreparer

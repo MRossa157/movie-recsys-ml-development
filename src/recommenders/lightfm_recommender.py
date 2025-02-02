@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from rectools import Columns
 from rectools.dataset import Dataset
-from rectools.models.lightfm import LightFMWrapperModelConfig
+from rectools.models.lightfm import LightFM
 from rectools.models.serialization import load_model
 
 from src.recommenders.base import BaseRecommender
@@ -125,7 +125,7 @@ class LightFMRecommender(BaseRecommender):
 
         self.model: LightFMWrapperModel = load_model(model_path)
 
-        if not isinstance(self.model.config_class, LightFMWrapperModelConfig):
+        if not isinstance(self.model.model, LightFM):
             raise TypeError('Invalid model format')
 
 

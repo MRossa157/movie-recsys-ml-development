@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING
 
-from rectools.models.lightfm import LightFMWrapperModelConfig
+from rectools.models.lightfm import LightFM
 from rectools.models.serialization import load_model
 
 from src.recommenders.item2item.base import BaseI2IRecommender
@@ -19,7 +19,7 @@ class LightFMRecommender(BaseI2IRecommender):
 
         self.model: LightFMWrapperModel = load_model(model_path)
 
-        if not isinstance(self.model.config_class, LightFMWrapperModelConfig):
+        if not isinstance(self.model.model, LightFM):
             raise TypeError('Invalid model format')
 
 

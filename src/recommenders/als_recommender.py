@@ -5,8 +5,13 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
+from implicit.cpu.als import (
+    AlternatingLeastSquares as CPUAlternatingLeastSquares,
+)
+from implicit.gpu.als import (
+    AlternatingLeastSquares as GPUAlternatingLeastSquares,
+)
 from rectools import Columns
-from rectools.models.implicit_als import ImplicitALSWrapperModelConfig
 from rectools.models.serialization import load_model
 
 from src.recommenders.base import BaseRecommender
@@ -54,7 +59,8 @@ class ALSRecommender(BaseRecommender):
         self.model: ImplicitALSWrapperModel = load_model(model_path)
 
         if not isinstance(
-            self.model.config_class, ImplicitALSWrapperModelConfig
+            self.model.model,
+            (GPUAlternatingLeastSquares, CPUAlternatingLeastSquares),
         ):
             raise TypeError('Invalid model format')
 

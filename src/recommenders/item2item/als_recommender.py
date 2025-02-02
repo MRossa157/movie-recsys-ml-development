@@ -1,15 +1,25 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
-from rectools.models.implicit_als import ImplicitALSWrapperModelConfig
+from implicit.cpu.als import (
+    AlternatingLeastSquares as CPUAlternatingLeastSquares,
+)
+from implicit.gpu.als import (
+    AlternatingLeastSquares as GPUAlternatingLeastSquares,
+)
 from rectools.models.serialization import load_model
 
 from src.recommenders.item2item.base import BaseI2IRecommender
 
 if TYPE_CHECKING:
     from rectools.models import ImplicitALSWrapperModel
+
+
+AnyAlternatingLeastSquares = Union[
+    CPUAlternatingLeastSquares, GPUAlternatingLeastSquares
+]
 
 
 class ALSRecommender(BaseI2IRecommender):
@@ -20,7 +30,8 @@ class ALSRecommender(BaseI2IRecommender):
         self.model: ImplicitALSWrapperModel = load_model(model_path)
 
         if not isinstance(
-            self.model.config_class, ImplicitALSWrapperModelConfig
+            self.model.model,
+            (GPUAlternatingLeastSquares, CPUAlternatingLeastSquares),
         ):
             raise TypeError('Invalid model format')
 
