@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from implicit.cpu.als import (
     AlternatingLeastSquares as CPUAlternatingLeastSquares,
@@ -15,11 +15,6 @@ from src.recommenders.item2item.base import BaseI2IRecommender
 
 if TYPE_CHECKING:
     from rectools.models import ImplicitALSWrapperModel
-
-
-AnyAlternatingLeastSquares = Union[
-    CPUAlternatingLeastSquares, GPUAlternatingLeastSquares
-]
 
 
 class ALSRecommender(BaseI2IRecommender):

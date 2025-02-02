@@ -16,9 +16,6 @@ if TYPE_CHECKING:
     from rectools.models import LightFMWrapperModel
 
 
-Columns.Datetime = 'last_watch_dt'
-
-
 class LightFMRecommender(BaseRecommender):
     def recommend(
         self,

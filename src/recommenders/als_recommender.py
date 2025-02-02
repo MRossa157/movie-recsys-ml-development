@@ -19,8 +19,6 @@ from src.recommenders.base import BaseRecommender
 if TYPE_CHECKING:
     from rectools.models import ImplicitALSWrapperModel
 
-Columns.Datetime = 'last_watch_dt'
-
 
 class ALSRecommender(BaseRecommender):
     def recommend(

@@ -8,6 +8,8 @@ from rectools.dataset import Dataset
 from src.constants import ItemsFeatureTopKConfig
 from src.recommenders.feature_processors import FeaturePreparer
 
+Columns.Datetime = 'last_watch_dt'
+
 
 class BaseRecommender:
     """Базовый класс для U2I рекомендательных систем."""
