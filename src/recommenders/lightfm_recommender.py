@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 import os
-import pickle
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 from rectools import Columns
 from rectools.dataset import Dataset
+from rectools.models.lightfm import LightFMWrapperModelConfig
+from rectools.models.serialization import load_model
 
 from src.recommenders.base import BaseRecommender
 
 if TYPE_CHECKING:
     from rectools.models import LightFMWrapperModel
+
 
 Columns.Datetime = 'last_watch_dt'
 
@@ -121,8 +123,10 @@ class LightFMRecommender(BaseRecommender):
         if not os.path.exists(model_path):
             raise FileNotFoundError(f'Model file {model_path} not found')
 
-        with open(model_path, 'rb') as f:
-            self.model: LightFMWrapperModel = pickle.load(f)
+        self.model: LightFMWrapperModel = load_model(model_path)
+
+        if not isinstance(self.model.config_class, LightFMWrapperModelConfig):
+            raise TypeError('Invalid model format')
 
 
 if __name__ == '__main__':

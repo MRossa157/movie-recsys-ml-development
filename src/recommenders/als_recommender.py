@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import os
-import pickle
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
 from rectools import Columns
+from rectools.models.implicit_als import ImplicitALSWrapperModelConfig
+from rectools.models.serialization import load_model
 
 from src.recommenders.base import BaseRecommender
 
@@ -50,11 +51,12 @@ class ALSRecommender(BaseRecommender):
         if not os.path.exists(model_path):
             raise FileNotFoundError(f'Model file {model_path} not found')
 
-        with open(model_path, 'rb') as f:
-            self.model: ImplicitALSWrapperModel = pickle.load(f)
+        self.model: ImplicitALSWrapperModel = load_model(model_path)
 
-        if not hasattr(self.model, 'recommend'):
-            raise ValueError('Invalid model format')
+        if not isinstance(
+            self.model.config_class, ImplicitALSWrapperModelConfig
+        ):
+            raise TypeError('Invalid model format')
 
     def _add_new_user(
         self,
