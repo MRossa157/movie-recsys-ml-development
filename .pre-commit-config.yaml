@@ -1,0 +1,18 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: clean-ipynb-outputs
+        name: Clean Notebook Outputs
+        entry: nbstripout
+        language: python
+        files: \.ipynb$
+        stages: [commit]
+        pass_filenames: true
+        args: [--strip]
