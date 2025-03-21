@@ -176,6 +176,5 @@ info.zip
 
 # Local ml development + datasets
 models/
+datasets/
 *.csv
-
-src/datasets/*
